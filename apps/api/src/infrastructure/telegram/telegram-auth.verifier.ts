@@ -21,53 +21,43 @@ export class TelegramAuthVerifier {
       throw new UnauthorizedException("bot token missing");
     }
 
-    // نعالج initData يدويا بدون فك ترميز القيم (Telegram وقع على القيم الخام)
-    const pairs = initData.split("&");
-    let hash = "";
-    const dataPairs: string[] = [];
-
-    for (const pair of pairs) {
-      const idx = pair.indexOf("=");
-      const key = pair.substring(0, idx);
-      const value = pair.substring(idx + 1);
-      if (key === "hash") {
-        hash = value;
-      } else {
-        dataPairs.push(`${key}=${value}`);
-      }
-    }
-
+    const params = new URLSearchParams(initData);
+    const hash = params.get("hash");
     if (!hash) {
       throw new UnauthorizedException("hash missing");
     }
+    params.delete("hash");
 
-    // الترتيب الابجدي ثم الدمج باسطر
-    dataPairs.sort();
-    const dataCheckString = dataPairs.join("\n");
+    const dataCheckString = [...params.entries()]
+      .map(([k, v]) => `${k}=${v}`)
+      .sort()
+      .join("\n");
 
-    // secret_key = HMAC_SHA256(bot_token, key="WebAppData")
-    const secretKey = crypto
+    const secret = crypto
       .createHmac("sha256", "WebAppData")
       .update(botToken)
       .digest();
 
-    const computedHash = crypto
-      .createHmac("sha256", secretKey)
+    const computed = crypto
+      .createHmac("sha256", secret)
       .update(dataCheckString)
       .digest("hex");
 
-    if (computedHash !== hash) {
+    if (computed !== hash) {
       throw new UnauthorizedException("invalid init data signature");
     }
 
-    // استخراج المستخدم (هنا نفك الترميز بعد التحقق)
-    const userPair = dataPairs.find((p) => p.startsWith("user="));
-    if (!userPair) {
+    const maxAge = Number(this.config.get<string>("TELEGRAM_INITDATA_MAX_AGE") ?? "86400");
+    const authDate = Number(params.get("auth_date") ?? "0");
+    const now = Math.floor(Date.now() / 1000);
+    if (maxAge > 0 && now - authDate > maxAge) {
+      throw new UnauthorizedException("init data expired");
+    }
+
+    const userRaw = params.get("user");
+    if (!userRaw) {
       throw new UnauthorizedException("user data missing");
     }
-    const userJson = decodeURIComponent(userPair.substring("user=".length));
-    const user = JSON.parse(userJson) as TelegramUser;
-
-    return user;
+    return JSON.parse(userRaw) as TelegramUser;
   }
 }
