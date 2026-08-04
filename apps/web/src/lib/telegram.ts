@@ -1,10 +1,5 @@
 'use client';
 
-/**
- * غلاف حول Telegram WebApp SDK.
- * يوفّر initData للمصادقة، ويطبّق ثيم Telegram، ويتحكم بأزرار الواجهة.
- */
-
 interface TelegramWebApp {
   initData: string;
   colorScheme: 'light' | 'dark';
@@ -36,23 +31,49 @@ export function getTelegram(): TelegramWebApp | null {
   return window.Telegram?.WebApp ?? null;
 }
 
-export function getInitData(): string {
-  const tg = getTelegram();
-  // في التطوير خارج Telegram، نسمح بقيمة من متغيّر بيئة للاختبار
-  if (!tg?.initData) {
-    return process.env.NEXT_PUBLIC_DEV_INITDATA ?? '';
+// Fallback: Telegram always passes init data in the page URL as tgWebAppData
+function initDataFromUrl(): string {
+  if (typeof window === 'undefined') return '';
+  const parts = [
+    window.location.hash.replace(/^#/, ''),
+    window.location.search.replace(/^\?/, ''),
+  ];
+  for (const part of parts) {
+    if (!part) continue;
+    try {
+      const raw = new URLSearchParams(part).get('tgWebAppData');
+      if (raw) return raw;
+    } catch {
+      // ignore malformed
+    }
   }
-  return tg.initData;
+  return '';
+}
+
+export function getInitData(): string {
+  const fromSdk = getTelegram()?.initData;
+  if (fromSdk) return fromSdk;
+  const fromUrl = initDataFromUrl();
+  if (fromUrl) return fromUrl;
+  return process.env.NEXT_PUBLIC_DEV_INITDATA ?? '';
 }
 
 export function initTelegram(): 'light' | 'dark' {
   const tg = getTelegram();
   if (!tg) return 'light';
-  tg.ready();
-  tg.expand();
-  return tg.colorScheme;
+  try {
+    tg.ready();
+    tg.expand();
+  } catch {
+    // ignore
+  }
+  return tg.colorScheme ?? 'light';
 }
 
 export function haptic(type: 'success' | 'error' | 'warning'): void {
-  getTelegram()?.HapticFeedback?.notificationOccurred(type);
+  try {
+    getTelegram()?.HapticFeedback?.notificationOccurred(type);
+  } catch {
+    // ignore
+  }
 }
