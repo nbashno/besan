@@ -23,7 +23,7 @@ export class AuthenticateTelegramUseCase {
     if (!verified) {
       throw new UnauthorizedException('تعذّر التحقق من بيانات Telegram');
     }
-    const tg = verified.user;
+    const tg = verified;
 
     const existing = await this.prisma.user.findUnique({
       where: { telegramId: tg.id },
