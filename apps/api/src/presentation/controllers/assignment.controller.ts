@@ -118,6 +118,23 @@ export class AssignmentController {
     return this.assignments.listForClass(classId, user.userId, q);
   }
 
+  @Get(':id/quiz')
+  getQuiz(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+  ) {
+    return this.assignments.getQuizForStudent(id, user.userId);
+  }
+
+  @Post(':id/quiz/submit')
+  submitQuiz(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() body: { answers: { questionId: string; choiceId?: string; writtenText?: string }[] },
+  ) {
+    return this.assignments.submitQuiz(id, user.userId, body.answers);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'تفاصيل واجب مع المرفقات' })
   details(

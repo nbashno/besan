@@ -281,4 +281,165 @@ export class AssignmentUseCase {
     });
     return { id: result.id, title: result.title, classId: result.classId };
   }
+
+  async getQuizForStudent(assignmentId: string, userId: string) {
+    const a = await this.prisma.assignment.findFirst({
+      where: { id: assignmentId, deletedAt: null },
+      include: {
+        questions: {
+          orderBy: { order: 'asc' },
+          include: { choices: { orderBy: { order: 'asc' } } },
+        },
+      },
+    });
+    if (!a) throw new NotFoundException('الاختبار غير موجود');
+    if (!a.isQuiz) throw new ForbiddenException('هذا ليس اختبارًا');
+
+    await this.ensureMember(a.classId, userId);
+
+    const existing = await this.prisma.submission.findUnique({
+      where: { assignmentId_studentId: { assignmentId, studentId: userId } },
+      include: { grade: true },
+    });
+
+    return {
+      id: a.id,
+      title: a.title,
+      description: a.description,
+      phetSlug: a.phetSlug,
+      dueAt: a.dueAt,
+      alreadySubmitted: existing?.status === 'SUBMITTED',
+      score: existing?.grade?.value ?? null,
+      questions: a.questions.map((q) => ({
+        id: q.id,
+        type: q.type,
+        text: q.text,
+        points: q.points,
+        choices: q.choices.map((c) => ({ id: c.id, text: c.text })),
+      })),
+    };
+  }
+
+  async submitQuiz(
+    assignmentId: string,
+    userId: string,
+    answers: { questionId: string; choiceId?: string; writtenText?: string }[],
+  ) {
+    const a = await this.prisma.assignment.findFirst({
+      where: { id: assignmentId, deletedAt: null },
+      include: {
+        questions: { include: { choices: true } },
+      },
+    });
+    if (!a) throw new NotFoundException('الاختبار غير موجود');
+    if (!a.isQuiz) throw new ForbiddenException('هذا ليس اختبارًا');
+    await this.ensureMember(a.classId, userId);
+
+    const prior = await this.prisma.submission.findUnique({
+      where: { assignmentId_studentId: { assignmentId, studentId: userId } },
+    });
+    if (prior?.status === 'SUBMITTED') {
+      throw new ForbiddenException('تم تسليم هذا الاختبار مسبقًا');
+    }
+
+    let totalPoints = 0;
+    let earnedPoints = 0;
+    const answerRows: {
+      questionId: string;
+      choiceId: string | null;
+      writtenText: string | null;
+      isCorrect: boolean | null;
+      awardedPoints: number | null;
+    }[] = [];
+
+    for (const q of a.questions) {
+      totalPoints += q.points;
+      const submitted = answers.find((x) => x.questionId === q.id);
+      if (q.type === 'MCQ') {
+        const correctChoice = q.choices.find((c) => c.isCorrect);
+        const isCorrect =
+          !!submitted?.choiceId && submitted.choiceId === correctChoice?.id;
+        const awarded = isCorrect ? q.points : 0;
+        earnedPoints += awarded;
+        answerRows.push({
+          questionId: q.id,
+          choiceId: submitted?.choiceId ?? null,
+          writtenText: null,
+          isCorrect,
+          awardedPoints: awarded,
+        });
+      } else {
+        answerRows.push({
+          questionId: q.id,
+          choiceId: null,
+          writtenText: submitted?.writtenText ?? '',
+          isCorrect: null,
+          awardedPoints: null,
+        });
+      }
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const submission = await tx.submission.upsert({
+        where: {
+          assignmentId_studentId: { assignmentId, studentId: userId },
+        },
+        create: {
+          assignmentId,
+          studentId: userId,
+          status: 'SUBMITTED',
+          submittedAt: new Date(),
+        },
+        update: { status: 'SUBMITTED', submittedAt: new Date() },
+      });
+
+      await tx.answer.deleteMany({ where: { submissionId: submission.id } });
+      for (const r of answerRows) {
+        await tx.answer.create({
+          data: {
+            submissionId: submission.id,
+            questionId: r.questionId,
+            choiceId: r.choiceId,
+            writtenText: r.writtenText,
+            isCorrect: r.isCorrect,
+            awardedPoints: r.awardedPoints,
+          },
+        });
+      }
+
+      await tx.grade.upsert({
+        where: { submissionId: submission.id },
+        create: {
+          submissionId: submission.id,
+          graderId: userId,
+          value: earnedPoints,
+          feedback: 'تصحيح تلقائي',
+        },
+        update: { value: earnedPoints },
+      });
+
+      return submission;
+    });
+
+    return {
+      submissionId: result.id,
+      score: earnedPoints,
+      total: totalPoints,
+      results: answerRows.map((r) => ({
+        questionId: r.questionId,
+        isCorrect: r.isCorrect,
+        awardedPoints: r.awardedPoints,
+      })),
+    };
+  }
+
+  private async ensureMember(classId: string, userId: string) {
+    const m = await this.prisma.classMember.findUnique({
+      where: { classId_userId: { classId, userId } },
+    });
+    if (!m) {
+      throw new ForbiddenException('لست عضوًا في هذا الصف');
+    }
+    return m;
+  }
 }
