@@ -7,8 +7,14 @@ import {
   IsNumber,
   MaxLength,
   Min,
+  IsBoolean,
+  IsInt,
+  IsArray,
+  ValidateNested,
+  ArrayMinSize,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { ASSIGNMENT_TYPES, AssignmentType } from '@shared';
 
 export class CreateAssignmentDto {
@@ -95,4 +101,69 @@ export class AssignmentDto {
   @ApiPropertyOptional() phetSlug?: string | null;
   @ApiProperty() published!: boolean;
   @ApiProperty() createdAt!: Date;
+}
+
+
+export class QuizChoiceDto {
+  @ApiProperty()
+  @IsString()
+  text!: string;
+
+  @ApiProperty()
+  @IsBoolean()
+  isCorrect!: boolean;
+}
+
+export class QuizQuestionDto {
+  @ApiProperty({ enum: ['MCQ', 'WRITTEN'] })
+  @IsString()
+  type!: 'MCQ' | 'WRITTEN';
+
+  @ApiProperty()
+  @IsString()
+  text!: string;
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  points?: number;
+
+  @ApiProperty({ type: [QuizChoiceDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => QuizChoiceDto)
+  choices!: QuizChoiceDto[];
+}
+
+export class CreateQuizDto {
+  @ApiProperty()
+  @IsString()
+  classId!: string;
+
+  @ApiProperty()
+  @IsString()
+  title!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  dueAt?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  phetSlug?: string;
+
+  @ApiProperty({ type: [QuizQuestionDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => QuizQuestionDto)
+  questions!: QuizQuestionDto[];
 }

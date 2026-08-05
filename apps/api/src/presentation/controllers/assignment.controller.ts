@@ -12,6 +12,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AssignmentUseCase } from '@/modules/assignments/assignment.use-case';
 import {
   CreateAssignmentDto,
+  CreateQuizDto,
   UpdateAssignmentDto,
   AttachFileDto,
   AssignmentDto,
@@ -28,6 +29,15 @@ import { Roles } from '@presentation/decorators/roles.decorator';
 @Controller('assignments')
 export class AssignmentController {
   constructor(private readonly assignments: AssignmentUseCase) {}
+
+  @Post('quiz')
+  @Roles('TEACHER', 'BRANCH_ADMIN', 'GROUP_ADMIN')
+  createQuiz(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateQuizDto,
+  ) {
+    return this.assignments.createQuiz(user.userId, dto);
+  }
 
   @Post()
   @Roles('TEACHER', 'BRANCH_ADMIN', 'GROUP_ADMIN')

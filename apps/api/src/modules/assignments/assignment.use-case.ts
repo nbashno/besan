@@ -15,6 +15,7 @@ import {
   UpdateAssignmentDto,
   AttachFileDto,
   AssignmentDto,
+  CreateQuizDto,
 } from '@application/dto/assignment.dto';
 import {
   PaginationQuery,
@@ -239,5 +240,45 @@ export class AssignmentUseCase {
       published: a.published,
       createdAt: a.createdAt,
     };
+  }
+
+  async createQuiz(authorId: string, dto: CreateQuizDto) {
+    await this.assertClassOwner(dto.classId, authorId);
+    const result = await this.prisma.$transaction(async (tx) => {
+      const a = await tx.assignment.create({
+        data: {
+          classId: dto.classId,
+          authorId,
+          title: dto.title,
+          description: dto.description,
+          type: 'QUIZ',
+          isQuiz: true,
+          autoGrade: true,
+          dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
+          phetSlug: dto.phetSlug,
+        },
+      });
+      for (let qi = 0; qi < dto.questions.length; qi++) {
+        const q = dto.questions[qi];
+        await tx.question.create({
+          data: {
+            assignmentId: a.id,
+            type: q.type,
+            text: q.text,
+            order: qi,
+            points: q.points ?? 1,
+            choices: {
+              create: (q.choices ?? []).map((c, ci) => ({
+                text: c.text,
+                isCorrect: c.isCorrect,
+                order: ci,
+              })),
+            },
+          },
+        });
+      }
+      return a;
+    });
+    return { id: result.id, title: result.title, classId: result.classId };
   }
 }
