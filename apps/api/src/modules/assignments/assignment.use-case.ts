@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '@infrastructure/persistence/prisma/prisma.service';
 import { StoragePort } from '@application/ports/storage.port';
 import { EventBus } from '@infrastructure/events/event-bus.service';
+import { NotificationPort } from '@application/ports/notification.port';
 import {
   DomainEvent,
   AssignmentCreatedPayload,
@@ -28,6 +29,7 @@ export class AssignmentUseCase {
     private readonly prisma: PrismaService,
     private readonly storage: StoragePort,
     private readonly events: EventBus,
+    private readonly notify: NotificationPort,
   ) {}
 
   async create(
@@ -280,6 +282,13 @@ export class AssignmentUseCase {
       }
       return a;
     });
+    // notify:quiz-created
+    await this.notifyClassStudents(
+      result.classId,
+      'اختبار جديد',
+      `تم نشر اختبار: ${result.title}`,
+      result.shareCode,
+    ).catch(() => {});
     return { id: result.id, title: result.title, classId: result.classId, shareCode: result.shareCode };
   }
 
@@ -423,6 +432,12 @@ export class AssignmentUseCase {
       return submission;
     });
 
+    // notify:quiz-submitted
+    await this.notifyTeacher(
+      a.classId,
+      'تسليم جديد',
+      `سلّم أحد الطلاب اختبار: ${a.title} — الدرجة: ${earnedPoints}/${totalPoints}`,
+    ).catch(() => {});
     return {
       submissionId: result.id,
       score: earnedPoints,
@@ -483,4 +498,39 @@ export class AssignmentUseCase {
 
     return { assignmentId: a.id, classId: a.classId, isQuiz: a.isQuiz };
   }
+
+  private readonly WEBAPP_URL = 'https://t.me/Besan_bot/app';
+
+  private async notifyClassStudents(
+    classId: string,
+    title: string,
+    body: string,
+    shareCode?: string | null,
+  ) {
+    const members = await this.prisma.classMember.findMany({
+      where: { classId, role: 'STUDENT' },
+      include: { user: { select: { telegramId: true } } },
+    });
+    const deepLink = shareCode
+      ? `${this.WEBAPP_URL}?startapp=${shareCode}`
+      : this.WEBAPP_URL;
+    await Promise.all(
+      members.map((m: { user: { telegramId: bigint | null } | null }) => {
+        const tgId = m.user?.telegramId;
+        if (!tgId) return Promise.resolve();
+        return this.notify.send({ telegramId: tgId, title, body, deepLink });
+      }),
+    );
+  }
+
+  private async notifyTeacher(classId: string, title: string, body: string) {
+    const cls = await this.prisma.class.findUnique({
+      where: { id: classId },
+      include: { owner: { select: { telegramId: true } } },
+    });
+    const tgId = cls?.owner?.telegramId;
+    if (!tgId) return;
+    await this.notify.send({ telegramId: tgId, title, body, deepLink: this.WEBAPP_URL });
+  }
+
 }
