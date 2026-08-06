@@ -41,6 +41,7 @@ export function QuizBuilder({
 
   const [title, setTitle] = useState('');
   const [saving, setSaving] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([
     { type: 'MCQ', text: '', points: 1, choices: [
       { text: '', isCorrect: true },
@@ -99,18 +100,35 @@ export function QuizBuilder({
     }
     setSaving(true);
     try {
-      const res = await api.post<{ id: string }>('/assignments/quiz', {
+      const res = await api.post<{ id: string; shareCode?: string }>('/assignments/quiz', {
         classId, title: title.trim(), questions,
       });
       await api.post(`/assignments/${res.id}/publish`).catch(() => {});
+      if (res.shareCode) {
+        setShareLink(`https://t.me/Besan_bot/app?startapp=${res.shareCode}`);
+      }
       toast('تم إنشاء الاختبار', 'ok');
-      onDone?.(res.id);
     } catch {
       toast('تعذّر إنشاء الاختبار', 'error');
     } finally {
       setSaving(false);
     }
   };
+
+  if (shareLink) {
+    return (
+      <div style={{ maxWidth: 520, margin: '0 auto', textAlign: 'center', paddingTop: 20 }}>
+        <div style={{ width: 72, height: 72, borderRadius: 20, background: 'var(--grad-brand)', display: 'grid', placeItems: 'center', margin: '0 auto 18px', fontSize: 34, color: '#fff' }}>✓</div>
+        <h1 style={{ fontSize: 24, marginBottom: 8 }}>تم إنشاء الاختبار</h1>
+        <p style={{ color: 'var(--ink-soft)', marginBottom: 22 }}>شارك هذا الرابط مع طلابك — يفتح الاختبار مباشرة</p>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+          <input readOnly value={shareLink} style={{ flex: 1, border: '1.5px solid var(--border)', borderRadius: 12, padding: '12px 14px', fontSize: 13, background: 'var(--surface-2)', color: 'var(--ink)', direction: 'ltr', textAlign: 'left' }} />
+          <button onClick={() => { navigator.clipboard?.writeText(shareLink); toast('تم نسخ الرابط', 'ok'); }} style={{ border: 'none', background: 'var(--violet-600)', color: '#fff', borderRadius: 12, padding: '0 18px', cursor: 'pointer', fontWeight: 600 }}>نسخ</button>
+        </div>
+        <button onClick={() => onDone?.('')} style={{ width: '100%', border: 'none', borderRadius: 14, padding: '14px', background: 'var(--grad-brand)', color: '#fff', fontSize: 16, fontWeight: 700, cursor: 'pointer' }}>تمّ</button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
