@@ -6,6 +6,7 @@ import { BaysanLogo } from './BaysanLogo';
 import { StatCard, EmptyState, Skeleton, useToast } from './ui';
 import { PhetLibrary } from './PhetLibrary';
 import { PhetPlayer } from './PhetPlayer';
+import { QuizPlayer } from './QuizPlayer';
 
 interface ClassItem {
   id: string;
@@ -20,6 +21,7 @@ interface Assignment {
   dueAt?: string | null;
   maxGrade?: number | null;
   phetSlug?: string | null;
+  isQuiz?: boolean | null;
 }
 interface MySubmission {
   id: string;
@@ -96,7 +98,13 @@ export function StudentDashboard({ name }: { name: string; userId: string }) {
         />
       )}
 
-      {view.name === 'assignment' && (
+      {view.name === 'assignment' && view.assignment.isQuiz && (
+        <QuizPlayer
+          assignmentId={view.assignment.id}
+          onBack={() => setView({ name: 'home' })}
+        />
+      )}
+      {view.name === 'assignment' && !view.assignment.isQuiz && (
         <AssignmentDetail
           assignment={view.assignment}
           onBack={() => setView({ name: 'home' })}
