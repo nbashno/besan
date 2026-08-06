@@ -1,7 +1,13 @@
 'use client';
 
+/**
+ * غلاف حول Telegram WebApp SDK.
+ * يوفّر initData للمصادقة، ويطبّق ثيم Telegram، ويتحكم بأزرار الواجهة.
+ */
+
 interface TelegramWebApp {
   initData: string;
+  initDataUnsafe?: { start_param?: string };
   colorScheme: 'light' | 'dark';
   themeParams: Record<string, string>;
   ready: () => void;
@@ -31,49 +37,44 @@ export function getTelegram(): TelegramWebApp | null {
   return window.Telegram?.WebApp ?? null;
 }
 
-// Fallback: Telegram always passes init data in the page URL as tgWebAppData
-function initDataFromUrl(): string {
-  if (typeof window === 'undefined') return '';
-  const parts = [
-    window.location.hash.replace(/^#/, ''),
-    window.location.search.replace(/^\?/, ''),
-  ];
-  for (const part of parts) {
-    if (!part) continue;
-    try {
-      const raw = new URLSearchParams(part).get('tgWebAppData');
-      if (raw) return raw;
-    } catch {
-      // ignore malformed
-    }
-  }
-  return '';
-}
-
 export function getInitData(): string {
-  const fromSdk = getTelegram()?.initData;
-  if (fromSdk) return fromSdk;
-  const fromUrl = initDataFromUrl();
-  if (fromUrl) return fromUrl;
-  return process.env.NEXT_PUBLIC_DEV_INITDATA ?? '';
+  const tg = getTelegram();
+  // في التطوير خارج Telegram، نسمح بقيمة من متغيّر بيئة للاختبار
+  if (!tg?.initData) {
+    return process.env.NEXT_PUBLIC_DEV_INITDATA ?? '';
+  }
+  return tg.initData;
 }
 
 export function initTelegram(): 'light' | 'dark' {
   const tg = getTelegram();
   if (!tg) return 'light';
-  try {
-    tg.ready();
-    tg.expand();
-  } catch {
-    // ignore
-  }
-  return tg.colorScheme ?? 'light';
+  tg.ready();
+  tg.expand();
+  return tg.colorScheme;
 }
 
 export function haptic(type: 'success' | 'error' | 'warning'): void {
+  getTelegram()?.HapticFeedback?.notificationOccurred(type);
+}
+
+export function getStartParam(): string | null {
+  if (typeof window === 'undefined') return null;
+  const tg = getTelegram();
+  const fromSdk = tg?.initDataUnsafe?.start_param;
+  if (fromSdk) return fromSdk;
+  // fallback من الرابط
   try {
-    getTelegram()?.HapticFeedback?.notificationOccurred(type);
-  } catch {
-    // ignore
-  }
+    const parts = [
+      window.location.hash.replace(/^#/, ''),
+      window.location.search.replace(/^\?/, ''),
+    ];
+    for (const part of parts) {
+      if (!part) continue;
+      const v = new URLSearchParams(part).get('tgWebAppStartParam')
+        || new URLSearchParams(part).get('startapp');
+      if (v) return v;
+    }
+  } catch {}
+  return null;
 }

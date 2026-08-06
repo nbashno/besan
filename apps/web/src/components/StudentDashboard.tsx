@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api, uploadViaSignedUrl } from '@/lib/api';
+import { getStartParam } from '@/lib/telegram';
 import { BaysanLogo } from './BaysanLogo';
 import { StatCard, EmptyState, Skeleton, useToast } from './ui';
 import { PhetLibrary } from './PhetLibrary';
@@ -45,6 +46,21 @@ type View =
 
 export function StudentDashboard({ name }: { name: string; userId: string }) {
   const [view, setView] = useState<View>({ name: 'home' });
+
+  useEffect(() => {
+    const sp = getStartParam();
+    if (!sp) return;
+    const code = sp.startsWith('quiz_') ? sp.slice(5) : sp;
+    api
+      .get<{ assignmentId: string; classId: string; isQuiz: boolean }>('/assignments/by-code/' + code)
+      .then((r) => {
+        setView({
+          name: 'assignment',
+          assignment: { id: r.assignmentId, title: '', isQuiz: r.isQuiz },
+        });
+      })
+      .catch(() => {});
+  }, []);
   const [tab, setTab] = useState<'classes' | 'rewards'>('classes');
 
   if (view.name === 'library') {
