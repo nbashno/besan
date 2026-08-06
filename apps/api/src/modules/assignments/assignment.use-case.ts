@@ -280,7 +280,7 @@ export class AssignmentUseCase {
       }
       return a;
     });
-    return { id: result.id, title: result.title, classId: result.classId };
+    return { id: result.id, title: result.title, classId: result.classId, shareCode: result.shareCode };
   }
 
   async getQuizForStudent(assignmentId: string, userId: string) {
