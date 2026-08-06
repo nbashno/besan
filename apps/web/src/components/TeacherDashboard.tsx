@@ -5,6 +5,7 @@ import { api, uploadViaSignedUrl } from '@/lib/api';
 import { BaysanLogo } from './BaysanLogo';
 import { StatCard, EmptyState, Skeleton, useToast } from './ui';
 import { PhetLibrary } from './PhetLibrary';
+import { QuizBuilder } from './QuizBuilder';
 import type { PhetSim } from '@/lib/phet-catalog';
 
 interface ClassItem {
@@ -242,6 +243,7 @@ function ClassView({
   const [stats, setStats] = useState<ClassStats | null>(null);
   const [assignments, setAssignments] = useState<Assignment[] | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(false);
   const toast = useToast();
 
   const load = useCallback(() => {
@@ -289,11 +291,26 @@ function ClassView({
         }}
       >
         <h2 style={{ fontSize: 17 }}>الواجبات</h2>
-        <button className="btn btn-primary" onClick={() => setShowNew(!showNew)}>
+        <div style={{ display: "flex", gap: 8 }}>
+        <button className="btn" style={{ background: "var(--surface-2)", color: "var(--ink)" }} onClick={() => { setShowQuiz(!showQuiz); setShowNew(false); }}>
+          + اختبار
+        </button>
+        <button className="btn btn-primary" onClick={() => { setShowNew(!showNew); setShowQuiz(false); }}>
           + واجب
         </button>
+        </div>
       </div>
 
+      {showQuiz && (
+        <div style={{ marginBottom: 16 }}>
+          <QuizBuilder
+            classId={cls.id}
+            plan="free"
+            onDone={() => { setShowQuiz(false); load(); }}
+            onBack={() => setShowQuiz(false)}
+          />
+        </div>
+      )}
       {showNew && (
         <NewAssignment
           classId={cls.id}
