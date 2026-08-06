@@ -252,6 +252,7 @@ export class AssignmentUseCase {
           title: dto.title,
           description: dto.description,
           type: 'QUIZ',
+          shareCode: this.genShareCode(),
           isQuiz: true,
           autoGrade: true,
           dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
@@ -305,6 +306,7 @@ export class AssignmentUseCase {
     return {
       id: a.id,
       title: a.title,
+      shareCode: a.shareCode,
       description: a.description,
       phetSlug: a.phetSlug,
       dueAt: a.dueAt,
@@ -441,5 +443,44 @@ export class AssignmentUseCase {
       throw new ForbiddenException('لست عضوًا في هذا الصف');
     }
     return m;
+  }
+
+  private genShareCode(): string {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let s = '';
+    for (let i = 0; i < 6; i++) {
+      s += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return s;
+  }
+
+  private readonly FREE_STUDENT_LIMIT = 50;
+
+  async openByShareCode(code: string, userId: string) {
+    const a = await this.prisma.assignment.findUnique({
+      where: { shareCode: code },
+    });
+    if (!a || a.deletedAt) {
+      throw new NotFoundException('الرابط غير صالح أو انتهى');
+    }
+
+    // انضمام تلقائي للصف إن لم يكن عضوًا
+    const existing = await this.prisma.classMember.findUnique({
+      where: { classId_userId: { classId: a.classId, userId } },
+    });
+
+    if (!existing) {
+      const studentCount = await this.prisma.classMember.count({
+        where: { classId: a.classId, role: 'STUDENT' },
+      });
+      if (studentCount >= this.FREE_STUDENT_LIMIT) {
+        throw new ForbiddenException('اكتمل عدد الطلاب في هذا الصف');
+      }
+      await this.prisma.classMember.create({
+        data: { classId: a.classId, userId, role: 'STUDENT' },
+      });
+    }
+
+    return { assignmentId: a.id, classId: a.classId, isQuiz: a.isQuiz };
   }
 }

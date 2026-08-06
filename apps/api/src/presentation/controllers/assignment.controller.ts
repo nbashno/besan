@@ -118,6 +118,14 @@ export class AssignmentController {
     return this.assignments.listForClass(classId, user.userId, q);
   }
 
+  @Get('by-code/:code')
+  openByCode(
+    @CurrentUser() user: AuthUser,
+    @Param('code') code: string,
+  ) {
+    return this.assignments.openByShareCode(code, user.userId);
+  }
+
   @Get(':id/quiz')
   getQuiz(
     @CurrentUser() user: AuthUser,
