@@ -9,6 +9,7 @@ import { AuthModule } from '@/modules/auth/auth.module';
 import { UsersModule } from '@/modules/users/users.module';
 import { HealthModule } from '@/modules/health/health.module';
 import { ClassesModule } from '@/modules/classes/classes.module';
+import { ReportsModule } from '@/modules/reports/reports.module';
 import { AssignmentsModule } from '@/modules/assignments/assignments.module';
 import { SubmissionsModule } from '@/modules/submissions/submissions.module';
 import { RewardsModule } from '@/modules/rewards/rewards.module';
@@ -47,6 +48,7 @@ import { RolesGuard } from '@presentation/guards/roles.guard';
     UsersModule,
     HealthModule,
     ClassesModule,
+    ReportsModule,
     AssignmentsModule,
     SubmissionsModule,
     RewardsModule,
