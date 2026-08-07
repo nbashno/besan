@@ -55,6 +55,14 @@ export interface AuthResult {
   schoolName?: string | null;
 }
 
+export async function getReportStatus(): Promise<{ show: boolean; monthKey: string }> {
+  return request("/reports/status");
+}
+
+export async function sendMonthlyReports(): Promise<{ sent: number; monthKey: string }> {
+  return request("/reports/send-now", { method: "POST" });
+}
+
 export async function completeProfile(input: {
   displayName: string;
   role: "TEACHER" | "STUDENT";

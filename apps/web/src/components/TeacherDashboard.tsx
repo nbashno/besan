@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api, uploadViaSignedUrl } from '@/lib/api';
+import { getReportStatus, sendMonthlyReports } from '@/lib/api';
 import { BaysanLogo } from './BaysanLogo';
 import { StatCard, EmptyState, Skeleton, useToast } from './ui';
 import { PhetLibrary } from './PhetLibrary';
@@ -127,6 +128,8 @@ function ClassesView({ onOpen }: { onOpen: (c: ClassItem) => void }) {
   const [classes, setClasses] = useState<ClassItem[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
+  const [reportShow, setReportShow] = useState(false);
+  const [reportBusy, setReportBusy] = useState(false);
   const toast = useToast();
 
   const load = useCallback(() => {
@@ -134,6 +137,7 @@ function ClassesView({ onOpen }: { onOpen: (c: ClassItem) => void }) {
       .get<{ items: ClassItem[] }>('/classes/owned')
       .then((r) => setClasses(r.items))
       .catch(() => setClasses([]));
+    getReportStatus().then((s) => setReportShow(s.show)).catch(() => {});
   }, []);
 
   useEffect(load, [load]);
@@ -151,10 +155,34 @@ function ClassesView({ onOpen }: { onOpen: (c: ClassItem) => void }) {
     }
   };
 
+  const sendReports = async () => {
+    setReportBusy(true);
+    try {
+      const r = await sendMonthlyReports();
+      toast(`تم إرسال ${r.sent} تقريرًا للطلاب`);
+      setReportShow(false);
+    } catch {
+      toast('تعذّر الإرسال', 'error');
+    } finally {
+      setReportBusy(false);
+    }
+  };
+
   if (!classes) return <><Skeleton /><Skeleton /><Skeleton /></>;
 
   return (
     <>
+      {reportShow && (
+        <div style={{ background: 'var(--grad-brand)', color: '#fff', borderRadius: 16, padding: '16px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, boxShadow: 'var(--shadow)' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, fontFamily: 'var(--font-display)' }}>📄 التقارير الشهرية جاهزة</div>
+            <div style={{ fontSize: 12.5, opacity: 0.9, marginTop: 2 }}>أرسل شهادات أداء الشهر الماضي لكل طلابك</div>
+          </div>
+          <button onClick={sendReports} disabled={reportBusy} style={{ border: 'none', background: '#fff', color: 'var(--ink-900)', borderRadius: 12, padding: '10px 16px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', opacity: reportBusy ? 0.7 : 1, fontFamily: 'var(--font-body)' }}>
+            {reportBusy ? 'جارٍ الإرسال…' : 'إرسال الآن'}
+          </button>
+        </div>
+      )}
       <div
         style={{
           display: 'flex',
