@@ -246,6 +246,13 @@ export class AssignmentUseCase {
 
   async createQuiz(authorId: string, dto: CreateQuizDto) {
     await this.assertClassOwner(dto.classId, authorId);
+    const limits = await this.getPlanLimits(authorId);
+    if (dto.questions.length > limits.questions) {
+      throw new ForbiddenException(`باقتك تسمح بـ ${limits.questions} أسئلة كحد أقصى`);
+    }
+    if (!limits.written && dto.questions.some((q: { type: string }) => q.type === "WRITTEN")) {
+      throw new ForbiddenException("الأسئلة الكتابية متاحة في الباقة الاحترافية فقط");
+    }
     const result = await this.prisma.$transaction(async (tx) => {
       const a = await tx.assignment.create({
         data: {
@@ -256,7 +263,7 @@ export class AssignmentUseCase {
           type: 'QUIZ',
           shareCode: this.genShareCode(),
           isQuiz: true,
-          autoGrade: true,
+          autoGrade: limits.autoGrade,
           dueAt: dto.dueAt ? new Date(dto.dueAt) : null,
           phetSlug: dto.phetSlug,
         },
@@ -531,6 +538,20 @@ export class AssignmentUseCase {
     const tgId = cls?.owner?.telegramId;
     if (!tgId) return;
     await this.notify.send({ telegramId: tgId, title, body, deepLink: this.WEBAPP_URL });
+  }
+
+
+  private readonly PLAN_LIMITS: Record<string, { classes: number; students: number; questions: number; autoGrade: boolean; written: boolean; monthlyReport: boolean }> = {
+    FREE:          { classes: 1,   students: 50,  questions: 5,  autoGrade: false, written: false, monthlyReport: false },
+    BASIC:         { classes: 3,   students: 100, questions: 10, autoGrade: true,  written: false, monthlyReport: false },
+    PRO:           { classes: 10,  students: 200, questions: 20, autoGrade: true,  written: true,  monthlyReport: true },
+    INSTITUTIONAL: { classes: 999, students: 999, questions: 50, autoGrade: true,  written: true,  monthlyReport: true },
+  };
+
+  private async getPlanLimits(userId: string) {
+    const u = await this.prisma.user.findUnique({ where: { id: userId } });
+    const plan = u?.plan ?? "FREE";
+    return this.PLAN_LIMITS[plan] ?? this.PLAN_LIMITS.FREE;
   }
 
 }
