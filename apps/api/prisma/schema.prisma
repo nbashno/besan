@@ -116,6 +116,7 @@ model User {
   schoolName      String?
   profileComplete Boolean   @default(false)
   plan            Plan      @default(FREE)
+  lastReportMonth String?
   languageCode String?
   branchId     String?
   createdAt    DateTime  @default(now())
