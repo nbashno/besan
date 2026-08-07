@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Query, Headers, UnauthorizedException } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Public } from '@presentation/decorators/public.decorator';
+import { CurrentUser, AuthUser } from '@presentation/decorators/current-user.decorator';
 import { ReportUseCase } from '@/modules/reports/report.use-case';
 import { ReportDispatchUseCase } from '@/modules/reports/report-dispatch.use-case';
 
@@ -40,4 +41,15 @@ export class ReportController {
     }
     return this.dispatch.runMonthly();
   }
+
+  @Get("status")
+  reportStatus(@CurrentUser() user: AuthUser) {
+    return this.dispatch.statusForTeacher(user.userId);
+  }
+
+  @Post("send-now")
+  sendNow(@CurrentUser() user: AuthUser) {
+    return this.dispatch.sendForTeacher(user.userId);
+  }
+
 }
