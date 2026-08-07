@@ -50,6 +50,22 @@ export interface AuthResult {
   userId: string;
   role: string;
   firstName: string;
+  profileComplete: boolean;
+  displayName?: string | null;
+  schoolName?: string | null;
+}
+
+export async function completeProfile(input: {
+  displayName: string;
+  role: "TEACHER" | "STUDENT";
+  schoolName?: string;
+}): Promise<AuthResult> {
+  const result = await request<AuthResult>("/auth/complete-profile", {
+    method: "POST",
+    body: input,
+  });
+  accessToken = result.accessToken;
+  return result;
 }
 
 /** تسجيل الدخول عبر Telegram — يُخزّن الرمز في الذاكرة */

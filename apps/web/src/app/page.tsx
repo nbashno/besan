@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { login } from '@/lib/api';
-import { initTelegram } from '@/lib/telegram';
+import { initTelegram, getStartParam } from '@/lib/telegram';
 import { BaysanLogo } from '@/components/BaysanLogo';
+import { ProfileSetup } from '@/components/ProfileSetup';
 import { TeacherDashboard } from '@/components/TeacherDashboard';
 import { StudentDashboard } from '@/components/StudentDashboard';
 import { ToastProvider } from '@/components/ui';
@@ -11,6 +12,7 @@ import { ToastProvider } from '@/components/ui';
 type State =
   | { phase: 'loading' }
   | { phase: 'error'; message: string }
+  | { phase: 'setup'; name: string; forcedRole?: 'TEACHER' | 'STUDENT' }
   | { phase: 'ready'; role: string; name: string; userId: string };
 
 const MIN_SPLASH_MS = 2800;
@@ -29,12 +31,9 @@ export default function Home() {
       .then((r) => {
         const wait = Math.max(0, MIN_SPLASH_MS - (Date.now() - started));
         setTimeout(() => {
-          setState({
-            phase: 'ready',
-            role: r.role,
-            name: r.firstName,
-            userId: r.userId,
-          });
+          r.profileComplete
+          ? setState({ phase: 'ready', role: r.role, name: r.displayName || r.firstName, userId: r.userId })
+          : setState({ phase: 'setup', name: r.displayName || r.firstName || '', forcedRole: getStartParam() ? 'STUDENT' : undefined });
         }, wait);
       })
       .catch((e) => {
@@ -59,6 +58,18 @@ export default function Home() {
   // الـsplash يظهر حتى تكتمل مدته الدنيا
   if (!splashDone || state.phase === 'loading') {
     return <SplashScreen fadeOut={fadeOut} />;
+  }
+
+  if (state.phase === 'setup') {
+    return (
+      <ProfileSetup
+        initialName={state.name}
+        forcedRole={state.forcedRole}
+        onDone={(r) =>
+          setState({ phase: 'ready', role: r.role, name: r.displayName || r.firstName, userId: r.userId })
+        }
+      />
+    );
   }
 
   if (state.phase === 'error') {
