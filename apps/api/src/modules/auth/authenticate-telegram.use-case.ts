@@ -65,7 +65,10 @@ export class AuthenticateTelegramUseCase {
       accessToken,
       userId: user.id,
       role: user.role,
-      firstName: user.firstName,
+      firstName: user.displayName ?? user.firstName,
+      profileComplete: user.profileComplete,
+      displayName: user.displayName,
+      schoolName: user.schoolName,
     };
   }
 }

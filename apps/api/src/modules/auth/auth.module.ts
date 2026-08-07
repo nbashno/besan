@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from '@presentation/controllers/auth.controller';
 import { AuthenticateTelegramUseCase } from './authenticate-telegram.use-case';
+import { CompleteProfileUseCase } from './complete-profile.use-case';
 
 @Module({
   imports: [
@@ -18,6 +19,6 @@ import { AuthenticateTelegramUseCase } from './authenticate-telegram.use-case';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthenticateTelegramUseCase],
+  providers: [AuthenticateTelegramUseCase, CompleteProfileUseCase],
 })
 export class AuthModule {}

@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class TelegramLoginDto {
@@ -13,4 +13,24 @@ export class AuthResultDto {
   @ApiProperty() userId!: string;
   @ApiProperty() role!: string;
   @ApiProperty() firstName!: string;
+  @ApiProperty() profileComplete!: boolean;
+  @ApiProperty() displayName?: string | null;
+  @ApiProperty() schoolName?: string | null;
+}
+
+export class CompleteProfileDto {
+  @ApiProperty({ description: 'الاسم الكامل' })
+  @IsString()
+  @IsNotEmpty()
+  displayName!: string;
+
+  @ApiProperty({ enum: ['TEACHER', 'STUDENT'] })
+  @IsString()
+  @IsNotEmpty()
+  role!: 'TEACHER' | 'STUDENT';
+
+  @ApiProperty({ required: false, description: 'اسم المدرسة (للمعلم)' })
+  @IsOptional()
+  @IsString()
+  schoolName?: string;
 }
